@@ -7,11 +7,14 @@ import {
   Body,
   UploadedFile,
   UseInterceptors,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { HotelService } from './hotel.service';
 import { Hotel } from './hotel.entity';
 import * as csvParser from 'csv-parser';
+import { diskStorage } from 'multer';
 import * as fs from 'fs';
 
 @Controller('hotels')
@@ -42,8 +45,23 @@ export class HotelController {
   }
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads', // 文件存儲路徑
+        filename: (req, file, cb) => {
+          const uniqueName = `${Date.now()}-${file.originalname}`; // 防止文件名衝突
+          cb(null, uniqueName);
+        },
+      }),
+    }),
+  )
   async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<void> {
+    if (!file) {
+      throw new HttpException('No file uploaded', HttpStatus.BAD_REQUEST);
+    }
+
+    console.log('Uploaded File:', file); // 確認上傳的文件資訊
     const hotels = [];
     const stream = fs.createReadStream(file.path);
     stream
